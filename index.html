@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roue du Bingo Musical</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Outfit:wght@500;700;800&display=swap">
+<style>
+/* Layout: wheel on the left, drawn challenge + history on the right; one column on phones.
+   Three deliberate looks (Néon, Plage, Pop), each a full token set. */
+:root {
+  --bg: #150829;
+  --surface: #241149;
+  --line: #4a2d85;
+  --ink: #fff6fb;
+  --muted: #bba9e6;
+  --c1: #ff3d9a;
+  --c2: #19e3ff;
+  --c3: #ffd21f;
+  --c4: #ff8a2b;
+  --c5: #ad8cff;
+  --special: #ffffff;
+  --on-special: #150829;
+  --on-seg: #150829;
+  --font-display: "Bungee", "Impact", "Arial Black", sans-serif;
+  --font-body: "Outfit", "Helvetica Neue", Arial, sans-serif;
+  color-scheme: dark;
+}
+:root[data-style="plage"] {
+  --bg: #06203d;
+  --surface: #0c3159;
+  --line: #25598f;
+  --ink: #f4fbff;
+  --muted: #9fc6e6;
+  --c1: #ff6b7f;
+  --c2: #4cd9f5;
+  --c3: #ffcf40;
+  --c4: #ff9d4d;
+  --c5: #46e3a6;
+  --special: #ffffff;
+  --on-special: #06203d;
+  --on-seg: #06203d;
+  color-scheme: dark;
+}
+:root[data-style="pop"] {
+  --bg: #efe9ff;
+  --surface: #ffffff;
+  --line: #c9bbf5;
+  --ink: #1e1244;
+  --muted: #5b4c8f;
+  --c1: #ff7eb8;
+  --c2: #5fe0f7;
+  --c3: #ffd84a;
+  --c4: #ff9d5c;
+  --c5: #b99dff;
+  --special: #1e1244;
+  --on-special: #ffffff;
+  --on-seg: #1e1244;
+  color-scheme: light;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  padding-block: 20px 36px;
+  padding-inline: 16px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 500 16px/1.45 var(--font-body);
+}
+button { font-family: inherit; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+
+.app { max-width: 980px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+.app[data-level="easy"] { --lvl: var(--c2); }
+.app[data-level="mid"] { --lvl: var(--c3); }
+.app[data-level="hard"] { --lvl: var(--c1); }
+
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.kicker { margin: 0; font-size: .75rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 4px 0 0; font: 400 clamp(2rem, 8vw, 3.2rem)/1 var(--font-display); letter-spacing: .01em; text-wrap: balance; }
+
+.seg { display: inline-flex; gap: 2px; padding: 3px; background: var(--surface); border: 2px solid var(--line); border-radius: 999px; }
+.seg button { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: .85rem; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+
+.levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.levels button {
+  min-width: 0; padding: 12px 4px; border-radius: 14px; border: 2px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer;
+  font-weight: 800; font-size: clamp(.78rem, 3.4vw, .95rem);
+}
+.levels button[data-level="easy"] { --lvl: var(--c2); }
+.levels button[data-level="mid"] { --lvl: var(--c3); }
+.levels button[data-level="hard"] { --lvl: var(--c1); }
+.levels button[aria-selected="true"] { background: var(--lvl); border-color: var(--lvl); color: var(--on-seg); }
+
+.stage { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 24px; align-items: start; }
+.stage > * { min-width: 0; }
+
+.wheel-col { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.wheel-wrap { position: relative; width: 100%; max-width: 440px; }
+.pointer {
+  position: absolute; z-index: 2; top: -4px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0; border-left: 17px solid transparent; border-right: 17px solid transparent;
+  border-top: 32px solid var(--ink); filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .35));
+}
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1; }
+
+.spin {
+  width: 100%; max-width: 440px; border: 0; border-radius: 16px; padding: 16px 20px; cursor: pointer;
+  background: var(--lvl); color: var(--on-seg); font-weight: 800; font-size: 1.15rem;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, .35); transition: transform .08s, box-shadow .08s;
+}
+.spin:active:not(:disabled) { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0, 0, 0, .35); }
+.spin:disabled { opacity: .65; cursor: not-allowed; }
+
+.chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: 440px; }
+.chips li, .hist li {
+  display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--line); font-size: .82rem; font-weight: 700;
+}
+.dot { flex: none; width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--line); }
+.dot[data-level="easy"] { background: var(--c2); }
+.dot[data-level="mid"] { background: var(--c3); }
+.dot[data-level="hard"] { background: var(--c1); }
+
+.info-col { display: flex; flex-direction: column; gap: 20px; }
+.result { min-height: 210px; padding: 22px; border-radius: 22px; background: var(--surface); border: 2px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+.result.fresh { animation: pop .35s ease-out; }
+@keyframes pop { from { transform: scale(.96); } to { transform: scale(1); } }
+.result-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.pill { padding: 4px 12px; border-radius: 999px; background: var(--lvl); color: var(--on-seg); font-size: .8rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.tag { padding: 3px 11px; border-radius: 999px; border: 2px solid var(--ink); font-size: .8rem; font-weight: 800; }
+.result h2 { margin: 0; font: 400 clamp(1.6rem, 6vw, 2.4rem)/1.08 var(--font-display); text-wrap: balance; overflow-wrap: anywhere; }
+.result p { margin: 0; font-size: 1.08rem; color: var(--muted); max-width: 46ch; }
+
+.block-title { margin: 0 0 10px; font-size: .75rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.ghost { border: 0; background: transparent; color: var(--muted); font-weight: 700; font-size: .8rem; text-decoration: underline; cursor: pointer; padding: 4px; letter-spacing: normal; text-transform: none; }
+.hist { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.hist li.empty { background: transparent; border-style: dashed; color: var(--muted); font-weight: 500; }
+
+.rules { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: .92rem; color: var(--muted); }
+.rules strong { color: var(--ink); }
+.note { margin: 0; font-size: .85rem; color: var(--muted); }
+
+.setup { padding: 18px; border-radius: 22px; background: var(--surface); border: 2px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+.setup-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.setup h2 { margin: 0; font: 400 1.25rem/1.1 var(--font-display); }
+.count { margin: 0; font-size: .88rem; font-weight: 700; color: var(--muted); }
+#filters { display: flex; flex-direction: column; gap: 10px; }
+.frow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.flabel { flex: 0 0 4.6rem; font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.fchips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; flex: 1; }
+.fchip { border: 2px solid var(--line); background: transparent; color: var(--ink); padding: 6px 12px; border-radius: 999px; font-weight: 700; font-size: .85rem; cursor: pointer; }
+.fchip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.song { padding: 18px; border-radius: 22px; background: var(--surface); border: 2px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+.song .block-title { margin: 0; }
+.s-empty { margin: 0; color: var(--muted); font-size: .95rem; }
+#s-body { display: flex; flex-direction: column; gap: 12px; }
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 2px solid var(--ink); background: transparent; color: var(--ink); padding: 10px 16px; border-radius: 12px; font-weight: 800; font-size: .92rem; cursor: pointer; }
+.btn:hover { background: var(--ink); color: var(--bg); }
+.s-title { margin: 0; font: 400 1.5rem/1.1 var(--font-display); overflow-wrap: anywhere; }
+.s-artist { margin: 4px 0 0; color: var(--muted); font-weight: 700; }
+.hint { margin: 8px 0 0; font-size: .85rem; color: var(--muted); }
+.player-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.bar { flex: 1; min-width: 80px; height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+.bar span { display: block; height: 100%; width: 0; background: var(--lvl); }
+.p-status { flex-basis: 100%; margin: 0; font-size: .85rem; color: var(--muted); }
+.links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.links a { color: var(--ink); font-weight: 800; font-size: .86rem; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--line); text-decoration: none; }
+.a-head { margin: 0 0 6px; font-size: .72rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.rows { display: grid; gap: 6px; margin: 0 0 12px; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 12px; background: var(--bg); }
+.row span { color: var(--muted); font-weight: 700; }
+.row strong { text-align: right; overflow-wrap: anywhere; }
+.rows.main .row { background: var(--lvl); color: var(--on-seg); }
+.rows.main .row span { color: var(--on-seg); opacity: .8; }
+
+@media (prefers-reduced-motion: reduce) {
+  .result.fresh { animation: none; }
+  .spin { transition: none; }
+}
+</style>
+
+</head>
+<body>
+<div class="app" id="app" data-level="easy">
+  <header class="top">
+    <div>
+      <p class="kicker">Défi du morceau</p>
+      <h1>Roue du Bingo</h1>
+    </div>
+    <div class="seg" role="group" aria-label="Style visuel" id="styles">
+      <button type="button" data-style="neon" aria-pressed="true">Néon</button>
+      <button type="button" data-style="plage" aria-pressed="false">Plage</button>
+      <button type="button" data-style="pop" aria-pressed="false">Pop</button>
+    </div>
+  </header>
+
+  <section class="setup" aria-label="Choix des morceaux">
+    <div class="setup-head">
+      <h2>Quels morceaux ?</h2>
+      <p class="count" id="count" aria-live="polite"></p>
+    </div>
+    <div id="filters"></div>
+    <div><button type="button" class="ghost" id="reset-filters">Tout effacer</button></div>
+  </section>
+
+  <div class="levels" role="tablist" aria-label="Niveau de difficulté" id="levels">
+    <button type="button" role="tab" id="tab-easy" data-level="easy" aria-selected="true">Facile</button>
+    <button type="button" role="tab" id="tab-mid" data-level="mid" aria-selected="false">Intermédiaire</button>
+    <button type="button" role="tab" id="tab-hard" data-level="hard" aria-selected="false">Difficile</button>
+  </div>
+
+  <main class="stage">
+    <section class="wheel-col" aria-label="Roue">
+      <div class="wheel-wrap">
+        <div class="pointer" aria-hidden="true"></div>
+        <canvas id="wheel" role="img" aria-label="Roue des défis"></canvas>
+      </div>
+      <button type="button" class="spin" id="spin">Tourner la roue</button>
+      <button type="button" class="ghost" id="sound" aria-pressed="true">Bruitages : activés</button>
+      <ul class="chips" id="chips" aria-label="Défis sur cette roue"></ul>
+    </section>
+
+    <section class="info-col">
+      <article class="result" id="result" role="status" aria-live="polite">
+        <div class="result-head"><span class="pill" id="r-level">Facile</span><span id="r-tags"></span></div>
+        <h2 id="r-title">Prêt à tourner</h2>
+        <p id="r-help">Lancez la roue pour tirer le défi du prochain morceau.</p>
+      </article>
+
+      <article class="song" id="song" aria-label="Morceau">
+        <h3 class="block-title"><span id="s-head">Morceau</span><span id="s-left"></span></h3>
+        <p class="s-empty" id="s-empty">Le morceau apparaît après le tirage.</p>
+        <div id="s-body" hidden>
+          <div class="player-row">
+            <button type="button" class="btn" id="btn-play">Rejouer 15 s</button>
+            <div class="bar" aria-hidden="true"><span id="bar-fill"></span></div>
+            <p class="p-status" id="play-status" aria-live="polite"></p>
+          </div>
+          <div class="btn-row">
+            <button type="button" class="btn" id="btn-title">Voir le morceau</button>
+            <button type="button" class="btn" id="btn-answer">Voir la réponse</button>
+          </div>
+          <div id="s-title-box" hidden>
+            <p class="s-title" id="s-title"></p>
+            <p class="s-artist" id="s-artist"></p>
+            <p class="hint">Pas d’extrait ? Ouvrez un lien et lancez le morceau.</p>
+            <div class="links">
+              <a id="lnk-yt" href="#" target="_blank" rel="noopener noreferrer">Chercher sur YouTube</a>
+              <a id="lnk-sp" href="#" target="_blank" rel="noopener noreferrer">Chercher sur Spotify</a>
+            </div>
+          </div>
+          <div id="s-answer" hidden>
+            <p class="a-head" id="a-main-head">Réponse au défi</p>
+            <div class="rows main" id="a-main"></div>
+            <p class="a-head">Fiche complète</p>
+            <div class="rows" id="a-full"></div>
+          </div>
+        </div>
+      </article>
+
+      <div>
+        <h3 class="block-title"><span>Derniers tirages</span><button type="button" class="ghost" id="clear">Effacer</button></h3>
+        <ol class="hist" id="hist"></ol>
+      </div>
+
+      <ul class="rules">
+        <li><strong>Joker</strong> : chaque joueur choisit son défi parmi ceux de la roue.</li>
+        <li><strong>Double</strong> : relancez la roue, le défi tiré vaut 2 cases.</li>
+      </ul>
+      <p class="note">Après la roue, un extrait de 15 secondes démarre tout seul (source : Apple, connexion internet requise). Fiches saisies de mémoire : vérifiez en cas de doute.</p>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var TAU = Math.PI * 2;
+  var root = document.documentElement;
+
+  var LEVELS = {
+    easy: { name: "Facile", segs: [
+      { lines: ["±4 ans"], title: "Année à ±4 ans", help: "Placez l’année du morceau à 4 ans près, avant ou après." },
+      { lines: ["±2 ans"], title: "Année à ±2 ans", help: "Placez l’année du morceau à 2 ans près." },
+      { lines: ["Solo", "ou duo"], title: "Solo ou duo", help: "Le morceau est-il chanté en solo ou en duo ?" },
+      { lines: ["Avant /", "après 2000"], title: "Avant ou après 2000", help: "Le morceau est-il sorti avant ou après 2000 ?" },
+      { lines: ["Décennie"], title: "Décennie", help: "Trouvez la décennie de sortie : années 70, 80, 90…" },
+      { lines: ["Chanteur", "ou chanteuse"], title: "Chanteur ou chanteuse", help: "Voix d’homme ou voix de femme ?" },
+      { kind: "joker", title: "Joker", help: "Chaque joueur choisit son défi parmi ceux de la roue." }
+    ] },
+    mid: { name: "Intermédiaire", segs: [
+      { lines: ["±1 an"], title: "Année à ±1 an", help: "Placez l’année du morceau à 1 an près." },
+      { lines: ["±2 ans", "+ bonus"], title: "Année à ±2 ans + bonus", help: "Année à 2 ans près. Bonus si vous trouvez aussi solo ou duo." },
+      { lines: ["Pays", "d’origine"], title: "Pays d’origine", help: "France, États-Unis, Royaume-Uni ou autre ?" },
+      { lines: ["Langue"], title: "Langue de la chanson", help: "Français, anglais ou autre langue ?" },
+      { lines: ["Début /", "fin décennie"], title: "Moitié de décennie", help: "Trouvez la décennie, puis dites début (0 à 4) ou fin (5 à 9)." },
+      { lines: ["Nom de", "l’artiste"], title: "Nom de l’artiste", help: "Qui chante ce morceau ?" },
+      { kind: "joker", title: "Joker", help: "Chaque joueur choisit son défi parmi ceux de la roue." }
+    ] },
+    hard: { name: "Difficile", segs: [
+      { lines: ["Année", "exacte"], title: "Année exacte", help: "Donnez l’année de sortie, sans marge d’erreur." },
+      { lines: ["±1 an", "sans indice"], title: "Année à ±1 an, sans indice", help: "Placez l’année à 1 an près, sans aucun indice." },
+      { lines: ["Titre", "exact"], title: "Titre exact", help: "Retrouvez le titre complet du morceau." },
+      { lines: ["Artiste +", "décennie"], title: "Artiste et décennie", help: "Nom de l’artiste et décennie de sortie." },
+      { lines: ["Année exacte", "+ solo/duo"], title: "Année exacte et solo ou duo", help: "Année exacte, et dites si c’est solo ou duo." },
+      { kind: "double", title: "Double", help: "Relancez la roue. Le prochain défi vaut 2 cases." }
+    ] }
+  };
+
+  var IDS = {
+    easy: ["y4", "y2", "soloduo", "av2000", "decade", "voice", "joker"],
+    mid: ["y1", "y2bonus", "country", "lang", "half", "artist", "joker"],
+    hard: ["yexact", "y1blind", "title", "artistdec", "yexactsolo", "double"]
+  };
+  Object.keys(IDS).forEach(function (k) {
+    LEVELS[k].segs.forEach(function (s, i) { s.id = IDS[k][i]; });
+  });
+
+  /* titre, artiste, année, type (s solo, d duo, g groupe), voix (h, f, m), pays, langue, genre */
+  var SONGS = [
+    ["Waterloo","ABBA",1974,"g","m","Suède","en","pop"],
+    ["Dancing Queen","ABBA",1976,"g","m","Suède","en","pop"],
+    ["Bohemian Rhapsody","Queen",1975,"g","h","Royaume-Uni","en","rock"],
+    ["We Will Rock You","Queen",1977,"g","h","Royaume-Uni","en","rock"],
+    ["I Will Survive","Gloria Gaynor",1978,"s","f","États-Unis","en","dance"],
+    ["Imagine","John Lennon",1971,"s","h","Royaume-Uni","en","pop"],
+    ["Let It Be","The Beatles",1970,"g","h","Royaume-Uni","en","rock"],
+    ["Rocket Man","Elton John",1972,"s","h","Royaume-Uni","en","pop"],
+    ["Superstition","Stevie Wonder",1972,"s","h","États-Unis","en","dance"],
+    ["Heroes","David Bowie",1977,"s","h","Royaume-Uni","en","rock"],
+    ["Another Brick in the Wall","Pink Floyd",1979,"g","h","Royaume-Uni","en","rock"],
+    ["Y.M.C.A.","Village People",1978,"g","h","États-Unis","en","dance"],
+    ["September","Earth, Wind & Fire",1978,"g","h","États-Unis","en","dance"],
+    ["Ring My Bell","Anita Ward",1979,"s","f","États-Unis","en","dance"],
+    ["Don't Stop 'Til You Get Enough","Michael Jackson",1979,"s","h","États-Unis","en","dance"],
+    ["Jolene","Dolly Parton",1973,"s","f","États-Unis","en","pop"],
+    ["Killing Me Softly with His Song","Roberta Flack",1973,"s","f","États-Unis","en","pop"],
+    ["Sultans of Swing","Dire Straits",1978,"g","h","Royaume-Uni","en","rock"],
+    ["Rapper's Delight","The Sugarhill Gang",1979,"g","h","États-Unis","en","rap"],
+    ["Alexandrie Alexandra","Claude François",1977,"s","h","France","fr","pop"],
+    ["L'Aigle noir","Barbara",1970,"s","f","France","fr","pop"],
+    ["Le Sud","Nino Ferrer",1975,"s","h","France","fr","pop"],
+    ["L'Été indien","Joe Dassin",1975,"s","h","France","fr","pop"],
+    ["Et si tu n'existais pas","Joe Dassin",1975,"s","h","France","fr","pop"],
+    ["Gigi l'amoroso","Dalida",1974,"s","f","France","fr","pop"],
+    ["Paroles, paroles","Dalida et Alain Delon",1973,"d","m","France","fr","pop"],
+    ["Le Téléphone pleure","Claude François",1974,"s","h","France","fr","pop"],
+    ["Ça plane pour moi","Plastic Bertrand",1977,"s","h","Belgique","fr","rock"],
+    ["Pour un flirt","Michel Delpech",1971,"s","h","France","fr","pop"],
+
+    ["Billie Jean","Michael Jackson",1983,"s","h","États-Unis","en","dance"],
+    ["Like a Virgin","Madonna",1984,"s","f","États-Unis","en","pop"],
+    ["Sweet Dreams (Are Made of This)","Eurythmics",1983,"d","f","Royaume-Uni","en","pop"],
+    ["Girls Just Want to Have Fun","Cyndi Lauper",1983,"s","f","États-Unis","en","pop"],
+    ["Africa","Toto",1982,"g","h","États-Unis","en","rock"],
+    ["Every Breath You Take","The Police",1983,"g","h","Royaume-Uni","en","rock"],
+    ["Don't You (Forget About Me)","Simple Minds",1985,"g","h","Royaume-Uni","en","rock"],
+    ["With or Without You","U2",1987,"g","h","Irlande","en","rock"],
+    ["Livin' on a Prayer","Bon Jovi",1986,"g","h","États-Unis","en","rock"],
+    ["Eye of the Tiger","Survivor",1982,"g","h","États-Unis","en","rock"],
+    ["Wake Me Up Before You Go-Go","Wham!",1984,"d","h","Royaume-Uni","en","pop"],
+    ["Never Gonna Give You Up","Rick Astley",1987,"s","h","Royaume-Uni","en","pop"],
+    ["Tainted Love","Soft Cell",1981,"d","h","Royaume-Uni","en","pop"],
+    ["Don't Stop Believin'","Journey",1981,"g","h","États-Unis","en","rock"],
+    ["I Wanna Dance with Somebody","Whitney Houston",1987,"s","f","États-Unis","en","pop"],
+    ["Like a Prayer","Madonna",1989,"s","f","États-Unis","en","pop"],
+    ["Faith","George Michael",1987,"s","h","Royaume-Uni","en","pop"],
+    ["Walk This Way","Run-DMC et Aerosmith",1986,"g","h","États-Unis","en","rap"],
+    ["The Message","Grandmaster Flash and the Furious Five",1982,"g","h","États-Unis","en","rap"],
+    ["Fight the Power","Public Enemy",1989,"g","h","États-Unis","en","rap"],
+    ["L'Aziza","Daniel Balavoine",1985,"s","h","France","fr","pop"],
+    ["Les Démons de minuit","Images",1986,"g","h","France","fr","pop"],
+    ["Il jouait du piano debout","France Gall",1980,"s","f","France","fr","pop"],
+    ["Marcia Baïla","Les Rita Mitsouko",1984,"d","f","France","fr","rock"],
+    ["Un autre monde","Téléphone",1984,"g","h","France","fr","rock"],
+    ["L'Aventurier","Indochine",1982,"g","h","France","fr","rock"],
+    ["Joe le taxi","Vanessa Paradis",1987,"s","f","France","fr","pop"],
+    ["Ella, elle l'a","France Gall",1987,"s","f","France","fr","pop"],
+    ["Les Corons","Pierre Bachelet",1982,"s","h","France","fr","pop"],
+    ["Je te donne","Jean-Jacques Goldman et Michael Jones",1985,"d","h","France","fr","pop"],
+    ["Mistral gagnant","Renaud",1985,"s","h","France","fr","pop"],
+    ["Mon mec à moi","Patricia Kaas",1988,"s","f","France","fr","pop"],
+
+    ["Smells Like Teen Spirit","Nirvana",1991,"g","h","États-Unis","en","rock"],
+    ["Wannabe","Spice Girls",1996,"g","f","Royaume-Uni","en","pop"],
+    ["...Baby One More Time","Britney Spears",1998,"s","f","États-Unis","en","pop"],
+    ["I Want It That Way","Backstreet Boys",1999,"g","h","États-Unis","en","pop"],
+    ["My Heart Will Go On","Céline Dion",1997,"s","f","Canada","en","pop"],
+    ["Vogue","Madonna",1990,"s","f","États-Unis","en","dance"],
+    ["Losing My Religion","R.E.M.",1991,"g","h","États-Unis","en","rock"],
+    ["Wonderwall","Oasis",1995,"g","h","Royaume-Uni","en","rock"],
+    ["Bitter Sweet Symphony","The Verve",1997,"g","h","Royaume-Uni","en","rock"],
+    ["Song 2","Blur",1997,"g","h","Royaume-Uni","en","rock"],
+    ["Zombie","The Cranberries",1994,"g","f","Irlande","en","rock"],
+    ["Gangsta's Paradise","Coolio",1995,"s","h","États-Unis","en","rap"],
+    ["Ice Ice Baby","Vanilla Ice",1990,"s","h","États-Unis","en","rap"],
+    ["Regulate","Warren G et Nate Dogg",1994,"d","h","États-Unis","en","rap"],
+    ["Juicy","The Notorious B.I.G.",1994,"s","h","États-Unis","en","rap"],
+    ["California Love","2Pac et Dr. Dre",1995,"d","h","États-Unis","en","rap"],
+    ["Gin and Juice","Snoop Doggy Dogg",1994,"s","h","États-Unis","en","rap"],
+    ["Killing Me Softly","Fugees",1996,"g","f","États-Unis","en","rap"],
+    ["Mambo No. 5","Lou Bega",1999,"s","h","Allemagne","en","dance"],
+    ["Barbie Girl","Aqua",1997,"g","m","Danemark","en","dance"],
+    ["Believe","Cher",1998,"s","f","États-Unis","en","dance"],
+    ["Genie in a Bottle","Christina Aguilera",1999,"s","f","États-Unis","en","pop"],
+    ["Livin' la Vida Loca","Ricky Martin",1999,"s","h","Porto Rico","en","pop"],
+    ["Under the Bridge","Red Hot Chili Peppers",1992,"g","h","États-Unis","en","rock"],
+    ["Enter Sandman","Metallica",1991,"g","h","États-Unis","en","rock"],
+    ["Around the World","Daft Punk",1997,"d","h","France","en","dance"],
+    ["Pour que tu m'aimes encore","Céline Dion",1995,"s","f","Canada","fr","pop"],
+    ["Ma liberté de penser","Florent Pagny",1997,"s","h","France","fr","pop"],
+    ["Aïcha","Khaled",1996,"s","h","Algérie","fr","pop"],
+    ["Foule sentimentale","Alain Souchon",1993,"s","h","France","fr","pop"],
+    ["Désenchantée","Mylène Farmer",1991,"s","f","France","fr","pop"],
+    ["Bouge de là","MC Solaar",1990,"s","h","France","fr","rap"],
+    ["Qui sème le vent récolte le tempo","MC Solaar",1991,"s","h","France","fr","rap"],
+    ["Je danse le mia","IAM",1993,"g","h","France","fr","rap"],
+    ["Petit frère","IAM",1994,"g","h","France","fr","rap"],
+    ["Demain c'est loin","IAM",1997,"g","h","France","fr","rap"],
+    ["Ma Benz","NTM",1998,"d","h","France","fr","rap"],
+
+    ["Yellow","Coldplay",2000,"g","h","Royaume-Uni","en","rock"],
+    ["One More Time","Daft Punk",2000,"d","h","France","en","dance"],
+    ["Fallin'","Alicia Keys",2001,"s","f","États-Unis","en","pop"],
+    ["Chop Suey!","System of a Down",2001,"g","h","États-Unis","en","rock"],
+    ["Lose Yourself","Eminem",2002,"s","h","États-Unis","en","rap"],
+    ["Without Me","Eminem",2002,"s","h","États-Unis","en","rap"],
+    ["Complicated","Avril Lavigne",2002,"s","f","Canada","en","pop"],
+    ["Dilemma","Nelly et Kelly Rowland",2002,"d","m","États-Unis","en","rap"],
+    ["In da Club","50 Cent",2003,"s","h","États-Unis","en","rap"],
+    ["Hey Ya!","OutKast",2003,"d","h","États-Unis","en","pop"],
+    ["Crazy in Love","Beyoncé et Jay-Z",2003,"d","m","États-Unis","en","pop"],
+    ["Seven Nation Army","The White Stripes",2003,"d","h","États-Unis","en","rock"],
+    ["Numb","Linkin Park",2003,"g","h","États-Unis","en","rock"],
+    ["Boulevard of Broken Dreams","Green Day",2004,"g","h","États-Unis","en","rock"],
+    ["Hung Up","Madonna",2005,"s","f","États-Unis","en","dance"],
+    ["Rehab","Amy Winehouse",2006,"s","f","Royaume-Uni","en","pop"],
+    ["Stronger","Kanye West",2007,"s","h","États-Unis","en","rap"],
+    ["Viva la Vida","Coldplay",2008,"g","h","Royaume-Uni","en","rock"],
+    ["Poker Face","Lady Gaga",2008,"s","f","États-Unis","en","dance"],
+    ["Single Ladies (Put a Ring on It)","Beyoncé",2008,"s","f","États-Unis","en","pop"],
+    ["Bad Romance","Lady Gaga",2009,"s","f","États-Unis","en","dance"],
+    ["Empire State of Mind","Jay-Z et Alicia Keys",2009,"d","m","États-Unis","en","rap"],
+    ["I Gotta Feeling","Black Eyed Peas",2009,"g","m","États-Unis","en","pop"],
+    ["J'ai demandé à la lune","Indochine",2002,"g","h","France","fr","rock"],
+    ["Sous le vent","Garou et Céline Dion",2003,"d","m","Canada","fr","pop"],
+    ["Ma philosophie","Amel Bent",2004,"s","f","France","fr","pop"],
+    ["La Boulette","Diam's",2006,"s","f","France","fr","rap"],
+    ["Alors on danse","Stromae",2009,"s","h","Belgique","fr","dance"],
+
+    ["Rolling in the Deep","Adele",2010,"s","f","Royaume-Uni","en","pop"],
+    ["Gangnam Style","PSY",2012,"s","h","Corée du Sud","ko","pop"],
+    ["Happy","Pharrell Williams",2013,"s","h","États-Unis","en","pop"],
+    ["Roar","Katy Perry",2013,"s","f","États-Unis","en","pop"],
+    ["Wake Me Up","Avicii",2013,"s","h","Suède","en","dance"],
+    ["Stay With Me","Sam Smith",2014,"s","h","Royaume-Uni","en","pop"],
+    ["Chandelier","Sia",2014,"s","f","Australie","en","pop"],
+    ["Shake It Off","Taylor Swift",2014,"s","f","États-Unis","en","pop"],
+    ["Shape of You","Ed Sheeran",2017,"s","h","Royaume-Uni","en","pop"],
+    ["Despacito","Luis Fonsi et Daddy Yankee",2017,"d","h","Porto Rico","es","pop"],
+    ["HUMBLE.","Kendrick Lamar",2017,"s","h","États-Unis","en","rap"],
+    ["God's Plan","Drake",2018,"s","h","Canada","en","rap"],
+    ["Bad Guy","Billie Eilish",2019,"s","f","États-Unis","en","pop"],
+    ["Blinding Lights","The Weeknd",2019,"s","h","Canada","en","pop"],
+    ["Wati by Night","Sexion d'Assaut",2010,"g","h","France","fr","rap"],
+    ["Papaoutai","Stromae",2013,"s","h","Belgique","fr","dance"],
+    ["Dernière Danse","Indila",2013,"s","f","France","fr","pop"],
+    ["Mon précieux","Soprano",2014,"s","h","France","fr","rap"],
+    ["Basique","Orelsan",2017,"s","h","France","fr","rap"],
+    ["Djadja","Aya Nakamura",2018,"s","f","France","fr","pop"],
+    ["Balance ton quoi","Angèle",2018,"s","f","Belgique","fr","pop"],
+
+    ["As It Was","Harry Styles",2022,"s","h","Royaume-Uni","en","pop"],
+    ["Anti-Hero","Taylor Swift",2022,"s","f","États-Unis","en","pop"],
+    ["Flowers","Miley Cyrus",2023,"s","f","États-Unis","en","pop"],
+    ["Espresso","Sabrina Carpenter",2024,"s","f","États-Unis","en","pop"],
+    ["Not Like Us","Kendrick Lamar",2024,"s","h","États-Unis","en","rap"],
+    ["Die With a Smile","Lady Gaga et Bruno Mars",2024,"d","m","États-Unis","en","pop"]
+  ].map(function (r) {
+    return { t: r[0], a: r[1], y: r[2], k: r[3], v: r[4], c: r[5], l: r[6], g: r[7], e: eraOf(r[2]) };
+  });
+
+  function eraOf(y) { return y < 1980 ? "70" : y < 1990 ? "80" : y < 2000 ? "90" : y < 2010 ? "2000" : y < 2020 ? "2010" : "2020"; }
+
+  var FACETS = [
+    { key: "e", label: "Époque", opts: [["70", "Années 70"], ["80", "Années 80"], ["90", "Années 90"], ["2000", "Années 2000"], ["2010", "Années 2010"], ["2020", "2020 et +"]] },
+    { key: "g", label: "Genre", opts: [["rap", "Rap"], ["rock", "Rock"], ["pop", "Pop"], ["dance", "Disco · Dance"]] },
+    { key: "l", label: "Langue", opts: [["fr", "Français"], ["en", "Anglais"]] }
+  ];
+  var sel = { e: {}, g: {}, l: {} };
+  var pool = [], bag = [], drawn = 0, current = null;
+
+  var countEl = document.getElementById("count");
+  var sHead = document.getElementById("s-head");
+  var sLeft = document.getElementById("s-left");
+  var sEmpty = document.getElementById("s-empty");
+  var sBody = document.getElementById("s-body");
+  var titleBox = document.getElementById("s-title-box");
+  var ansBox = document.getElementById("s-answer");
+  var btnTitle = document.getElementById("btn-title");
+  var btnAnswer = document.getElementById("btn-answer");
+  var mainHead = document.getElementById("a-main-head");
+  var aMain = document.getElementById("a-main");
+  var aFull = document.getElementById("a-full");
+
+  function dec(y) { var d = Math.floor(y / 10) * 10; return "Années " + (d < 2000 ? d - 1900 : d); }
+  function typeLabel(k) { return k === "s" ? "Solo" : k === "d" ? "Duo" : "Groupe"; }
+  function voiceLabel(v) { return v === "h" ? "Voix d’homme" : v === "f" ? "Voix de femme" : "Voix mixtes"; }
+  function langLabel(l) { return { fr: "Français", en: "Anglais", es: "Espagnol", ko: "Coréen" }[l] || l; }
+  function genreLabel(g) { return { rap: "Rap", rock: "Rock", pop: "Pop", dance: "Disco · Dance" }[g] || g; }
+  function isMajor(c) { return c === "France" || c === "États-Unis" || c === "Royaume-Uni"; }
+  function range(y, n) { return (y - n) + " à " + (y + n); }
+
+  function answerMain(id, s) {
+    switch (id) {
+      case "y4": return [["Année", s.y], ["Réponse valable", range(s.y, 4)]];
+      case "y2": return [["Année", s.y], ["Réponse valable", range(s.y, 2)]];
+      case "y1": case "y1blind": return [["Année", s.y], ["Réponse valable", range(s.y, 1)]];
+      case "y2bonus": return [["Année", s.y], ["Réponse valable", range(s.y, 2)], ["Bonus", typeLabel(s.k)]];
+      case "soloduo": return [["Type", typeLabel(s.k)]];
+      case "av2000": return [["Sortie", s.y < 2000 ? "Avant 2000" : "2000 ou après"], ["Année", s.y]];
+      case "decade": return [["Décennie", dec(s.y)], ["Année", s.y]];
+      case "voice": return [["Voix", voiceLabel(s.v)]];
+      case "country": return [["Pays", s.c + (isMajor(s.c) ? "" : " (autre)")]];
+      case "lang": return [["Langue", langLabel(s.l)]];
+      case "half": return [["Décennie", dec(s.y)], ["Moitié", s.y % 10 < 5 ? "Début (0 à 4)" : "Fin (5 à 9)"], ["Année", s.y]];
+      case "artist": return [["Artiste", s.a]];
+      case "title": return [["Titre", s.t]];
+      case "yexact": return [["Année", s.y]];
+      case "artistdec": return [["Artiste", s.a], ["Décennie", dec(s.y)]];
+      case "yexactsolo": return [["Année", s.y], ["Type", typeLabel(s.k)]];
+      default: return [];
+    }
+  }
+
+  function fillRows(box, pairs) {
+    box.textContent = "";
+    pairs.forEach(function (p) {
+      var row = document.createElement("div");
+      row.className = "row";
+      var a = document.createElement("span");
+      a.textContent = p[0];
+      var b = document.createElement("strong");
+      b.textContent = String(p[1]);
+      row.appendChild(a);
+      row.appendChild(b);
+      box.appendChild(row);
+    });
+  }
+
+  function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function matches(s) {
+    return FACETS.every(function (f) {
+      var chosen = Object.keys(sel[f.key]);
+      return !chosen.length || chosen.indexOf(String(s[f.key])) !== -1;
+    });
+  }
+
+  function clearSong(msg) {
+    stopPreview();
+    current = null;
+    sBody.hidden = true;
+    sEmpty.hidden = false;
+    sEmpty.textContent = msg;
+    sHead.textContent = "Morceau";
+    sLeft.textContent = "";
+  }
+
+  function renderSong() {
+    var s = current.song;
+    sEmpty.hidden = true;
+    sBody.hidden = false;
+    sHead.textContent = "Morceau n°" + drawn;
+    sLeft.textContent = bag.length + " restant" + (bag.length > 1 ? "s" : "");
+    titleBox.hidden = true;
+    ansBox.hidden = true;
+    btnTitle.textContent = "Voir le morceau";
+    btnAnswer.textContent = "Voir la réponse";
+    document.getElementById("s-title").textContent = s.t;
+    document.getElementById("s-artist").textContent = s.a;
+    var q = encodeURIComponent(s.t + " " + s.a);
+    document.getElementById("lnk-yt").href = "https://www.youtube.com/results?search_query=" + q;
+    document.getElementById("lnk-sp").href = "https://open.spotify.com/search/" + q;
+    var main = answerMain(current.seg.id, s);
+    mainHead.hidden = !main.length;
+    aMain.hidden = !main.length;
+    fillRows(aMain, main);
+    fillRows(aFull, [["Année", s.y], ["Décennie", dec(s.y)], ["Type", typeLabel(s.k)], ["Voix", voiceLabel(s.v)], ["Pays", s.c], ["Langue", langLabel(s.l)], ["Genre", genreLabel(s.g)]]);
+  }
+
+  function drawSong(seg) {
+    if (!pool.length) { clearSong("Aucun morceau avec ce mélange."); return; }
+    if (!bag.length) { bag = shuffle(pool.slice()); drawn = 0; }
+    current = { song: bag.pop(), seg: seg };
+    drawn += 1;
+    renderSong();
+    startPreview(current.song);
+  }
+
+  function applyFilters() {
+    pool = SONGS.filter(matches);
+    bag = shuffle(pool.slice());
+    drawn = 0;
+    var n = pool.length;
+    countEl.textContent = n === 0 ? "Aucun morceau avec ce mélange. Retirez un choix."
+      : n < 8 ? n + " morceau" + (n > 1 ? "x" : "") + " seulement : la liste se répète vite."
+      : n + " morceaux prêts.";
+    clearSong(n ? "Le morceau apparaît après le tirage." : "Aucun morceau avec ce mélange.");
+    updateSpinBtn();
+  }
+
+  function buildFilters() {
+    var box = document.getElementById("filters");
+    box.textContent = "";
+    FACETS.forEach(function (f) {
+      var row = document.createElement("div");
+      row.className = "frow";
+      var lab = document.createElement("span");
+      lab.className = "flabel";
+      lab.textContent = f.label;
+      var wrap = document.createElement("div");
+      wrap.className = "fchips";
+      f.opts.forEach(function (o) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "fchip";
+        b.textContent = o[1];
+        b.setAttribute("aria-pressed", sel[f.key][o[0]] ? "true" : "false");
+        b.addEventListener("click", function () {
+          if (spinning) return;
+          if (sel[f.key][o[0]]) delete sel[f.key][o[0]]; else sel[f.key][o[0]] = true;
+          b.setAttribute("aria-pressed", sel[f.key][o[0]] ? "true" : "false");
+          applyFilters();
+        });
+        wrap.appendChild(b);
+      });
+      row.appendChild(lab);
+      row.appendChild(wrap);
+      box.appendChild(row);
+    });
+  }
+
+  var app = document.getElementById("app");
+  var canvas = document.getElementById("wheel");
+  var ctx = canvas.getContext("2d");
+  var spinBtn = document.getElementById("spin");
+  var chips = document.getElementById("chips");
+  var hist = document.getElementById("hist");
+  var result = document.getElementById("result");
+  var rLevel = document.getElementById("r-level");
+  var rTags = document.getElementById("r-tags");
+  var rTitle = document.getElementById("r-title");
+  var rHelp = document.getElementById("r-help");
+
+  var reduce = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var level = "easy";
+  var rot = 0.45;
+  var spinning = false;
+  var doubleNext = false;
+  var history = [];
+  var T = {};
+
+  function readTokens() {
+    var cs = getComputedStyle(root);
+    function g(n) { return cs.getPropertyValue(n).trim(); }
+    T = {
+      colors: [g("--c1"), g("--c2"), g("--c3"), g("--c4"), g("--c5")],
+      special: g("--special"), onSpecial: g("--on-special"), onSeg: g("--on-seg"),
+      bg: g("--bg"), ink: g("--ink"), line: g("--line")
+    };
+  }
+
+  function draw() {
+    var size = Math.round(canvas.getBoundingClientRect().width) || 320;
+    var dpr = Math.min(window.devicePixelRatio || 1, 3);
+    if (canvas.width !== Math.round(size * dpr)) {
+      canvas.width = Math.round(size * dpr);
+      canvas.height = Math.round(size * dpr);
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, size, size);
+
+    var segs = LEVELS[level].segs;
+    var n = segs.length, a = TAU / n;
+    var cx = size / 2, cy = size / 2, R = size / 2 - 8;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 6, 0, TAU);
+    ctx.fillStyle = T.line;
+    ctx.fill();
+
+    segs.forEach(function (s, i) {
+      var a0 = rot + i * a, a1 = a0 + a;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, R, a0, a1);
+      ctx.closePath();
+      ctx.fillStyle = s.kind ? T.special : T.colors[i % 5];
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = T.bg;
+      ctx.stroke();
+    });
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(0,0,0,0.10)";
+    for (var r = 0.3; r < 0.97; r += 0.07) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, R * r, 0, TAU);
+      ctx.stroke();
+    }
+
+    var fs = Math.max(12, Math.min(18, size * 0.043));
+    ctx.font = "800 " + fs + 'px Outfit, "Helvetica Neue", Arial, sans-serif';
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "right";
+    segs.forEach(function (s, i) {
+      var mid = rot + (i + 0.5) * a;
+      var lines = s.kind === "joker" ? ["★ Joker"] : s.kind === "double" ? ["★ Double"] : s.lines;
+      var lh = fs * 1.12;
+      var y0 = -((lines.length - 1) * lh) / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(mid);
+      ctx.fillStyle = s.kind ? T.onSpecial : T.onSeg;
+      lines.forEach(function (t, k) { ctx.fillText(t, R - 14, y0 + k * lh); });
+      ctx.restore();
+    });
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * 0.17, 0, TAU);
+    ctx.fillStyle = T.bg;
+    ctx.fill();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = T.line;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, R * 0.045, 0, TAU);
+    ctx.fillStyle = T.ink;
+    ctx.fill();
+  }
+
+  function renderChips() {
+    chips.textContent = "";
+    LEVELS[level].segs.forEach(function (s, i) {
+      var li = document.createElement("li");
+      var dot = document.createElement("span");
+      dot.className = "dot";
+      dot.style.background = s.kind ? T.special : T.colors[i % 5];
+      li.appendChild(dot);
+      li.appendChild(document.createTextNode(s.kind === "joker" ? "Joker" : s.kind === "double" ? "Double" : s.title));
+      chips.appendChild(li);
+    });
+  }
+
+  function renderHistory() {
+    hist.textContent = "";
+    if (!history.length) {
+      var e = document.createElement("li");
+      e.className = "empty";
+      e.textContent = "Aucun tirage pour l’instant.";
+      hist.appendChild(e);
+      return;
+    }
+    history.forEach(function (h) {
+      var li = document.createElement("li");
+      var dot = document.createElement("span");
+      dot.className = "dot";
+      dot.setAttribute("data-level", h.level);
+      li.appendChild(dot);
+      li.appendChild(document.createTextNode(h.title + (h.x2 ? " ×2" : "")));
+      hist.appendChild(li);
+    });
+  }
+
+  function showResult(o) {
+    rLevel.textContent = LEVELS[level].name;
+    rTitle.textContent = o.title;
+    rHelp.textContent = o.help;
+    rTags.textContent = "";
+    (o.tags || []).forEach(function (t) {
+      var s = document.createElement("span");
+      s.className = "tag";
+      s.textContent = t;
+      rTags.appendChild(s);
+    });
+    if (o.fresh) {
+      result.classList.remove("fresh");
+      void result.offsetWidth;
+      result.classList.add("fresh");
+    }
+  }
+
+  function showIdle() {
+    showResult({
+      title: "Prêt à tourner",
+      help: "Lancez la roue : elle choisit le défi, puis un morceau est tiré. " + LEVELS[level].segs.length + " cases sur cette roue.",
+      tags: doubleNext ? ["×2 actif"] : []
+    });
+  }
+
+  function updateSpinBtn() {
+    var empty = !pool.length;
+    spinBtn.disabled = spinning || empty;
+    spinBtn.textContent = spinning ? "Ça tourne…" : empty ? "Aucun morceau" : (doubleNext ? "Relancer · défi ×2" : "Tourner la roue");
+  }
+
+  function setLevel(next) {
+    if (spinning || next === level) return;
+    level = next;
+    app.setAttribute("data-level", level);
+    Array.prototype.forEach.call(document.querySelectorAll("#levels button"), function (b) {
+      b.setAttribute("aria-selected", b.getAttribute("data-level") === level ? "true" : "false");
+    });
+    renderChips();
+    showIdle();
+    draw();
+  }
+
+  function finish() {
+    spinning = false;
+    var segs = LEVELS[level].segs;
+    var a = TAU / segs.length;
+    var phi = ((-Math.PI / 2 - rot) % TAU + TAU) % TAU;
+    var seg = segs[Math.min(segs.length - 1, Math.floor(phi / a))];
+    var x2 = false;
+
+    if (seg.kind === "double") {
+      doubleNext = true;
+      showResult({ title: "Double !", help: seg.help, tags: ["×2 actif"], fresh: true });
+      history.unshift({ level: level, title: "Double", x2: false });
+      clearSong("Double : relancez la roue pour tirer le morceau.");
+    } else {
+      x2 = doubleNext;
+      doubleNext = false;
+      var tags = [];
+      if (seg.kind === "joker") tags.push("Joker");
+      if (x2) tags.push("×2 : 2 cases");
+      showResult({ title: seg.title, help: seg.help, tags: tags, fresh: true });
+      history.unshift({ level: level, title: seg.title, x2: x2 });
+      drawSong(seg);
+    }
+    if (history.length > 12) history.length = 12;
+    chime();
+    renderHistory();
+    updateSpinBtn();
+  }
+
+  function spin() {
+    if (spinning) return;
+    spinning = true;
+    ensureAudio();
+    unlockAudio();
+    updateSpinBtn();
+    showResult({ title: "La roue tourne…", help: "", tags: doubleNext ? ["×2 actif"] : [] });
+    clearSong("Le morceau apparaît après le tirage.");
+
+    var n = LEVELS[level].segs.length, a = TAU / n;
+    var win = Math.floor(Math.random() * n);
+    var off = Math.random() * 0.7 - 0.35;
+    var target = -Math.PI / 2 - (win + 0.5 + off) * a;
+    var cur = rot;
+    var delta = (((target - cur) % TAU) + TAU) % TAU;
+    delta += (reduce ? 1 : 5 + Math.floor(Math.random() * 3)) * TAU;
+    var dur = reduce ? 700 : 4200 + Math.random() * 800;
+    var t0 = performance.now();
+    var lastIdx = -1;
+
+    function frame(now) {
+      var p = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 4);
+      rot = cur + delta * e;
+      var phiNow = ((-Math.PI / 2 - rot) % TAU + TAU) % TAU;
+      var idxNow = Math.floor(phiNow / a);
+      if (idxNow !== lastIdx) { if (lastIdx !== -1) tick(); lastIdx = idxNow; }
+      draw();
+      if (p < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        rot = ((rot % TAU) + TAU) % TAU;
+        draw();
+        finish();
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  var soundOn = true, actx = null, lastTick = 0;
+  try { if (localStorage.getItem("bingo-sound") === "off") soundOn = false; } catch (e) {}
+  var soundBtn = document.getElementById("sound");
+
+  function updateSoundBtn() {
+    soundBtn.setAttribute("aria-pressed", soundOn ? "true" : "false");
+    soundBtn.textContent = soundOn ? "Bruitages : activés" : "Bruitages : coupés";
+  }
+  function ensureAudio() {
+    if (!soundOn) return;
+    try {
+      if (!actx) {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) actx = new AC();
+      }
+      if (actx && actx.state === "suspended") actx.resume();
+    } catch (e) { actx = null; }
+  }
+  function beep(freq, start, dur, type, gain) {
+    var o = actx.createOscillator();
+    var g = actx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(gain, start + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    o.connect(g);
+    g.connect(actx.destination);
+    o.start(start);
+    o.stop(start + dur + 0.02);
+  }
+  function tick() {
+    if (!soundOn || !actx) return;
+    var now = performance.now();
+    if (now - lastTick < 35) return;
+    lastTick = now;
+    try { beep(1400, actx.currentTime, 0.04, "square", 0.05); } catch (e) {}
+  }
+  function chime() {
+    if (!soundOn || !actx) return;
+    try {
+      var t = actx.currentTime;
+      [523.25, 659.25, 783.99, 1046.5].forEach(function (f, i) { beep(f, t + i * 0.11, 0.28, "triangle", 0.12); });
+    } catch (e) {}
+  }
+  soundBtn.addEventListener("click", function () {
+    soundOn = !soundOn;
+    try { localStorage.setItem("bingo-sound", soundOn ? "on" : "off"); } catch (e) {}
+    updateSoundBtn();
+    if (soundOn) { ensureAudio(); chime(); }
+  });
+  updateSoundBtn();
+
+  /* Extraits de 15 secondes : recherche sur l'API iTunes, lecture automatique */
+  var CLIP = 15;
+  var SILENT = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+  var player = new Audio();
+  player.preload = "auto";
+  var unlocked = false, playToken = 0, previewCache = {};
+  var btnPlay = document.getElementById("btn-play");
+  var barFill = document.getElementById("bar-fill");
+  var playStatus = document.getElementById("play-status");
+
+  function unlockAudio() {
+    if (unlocked) return;
+    unlocked = true;
+    try {
+      player.src = SILENT;
+      var p = player.play();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
+  function setPlayStatus(msg) { playStatus.textContent = msg; }
+  function stopPreview() {
+    playToken++;
+    try { player.pause(); } catch (e) {}
+    barFill.style.width = "0%";
+    setPlayStatus("");
+  }
+
+  function norm(s) {
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  function pickPreview(results, song) {
+    var t = norm(song.t);
+    var a = norm(song.a.split(/ et /)[0]);
+    var best = null, bestScore = -99;
+    results.forEach(function (r) {
+      if (!r.previewUrl) return;
+      var rt = norm(r.trackName), ra = norm(r.artistName), rc = norm(r.collectionName);
+      var score = 0;
+      if (!ra || (ra.indexOf(a) === -1 && a.indexOf(ra) === -1)) return;
+      score += 2;
+      if (rt === t) score += 3;
+      else if (rt.indexOf(t) === 0 || (rt && t.indexOf(rt) === 0)) score += 2;
+      else if (rt.indexOf(t) !== -1) score += 1;
+      if (/(live|karaoke|tribute|cover|instrumental|piano|remix|made famous)/.test(rt + " " + rc)) score -= 2;
+      if (score > bestScore) { bestScore = score; best = r; }
+    });
+    return best && bestScore >= 3 ? best.previewUrl : null;
+  }
+  function jsonp(url) {
+    return new Promise(function (resolve, reject) {
+      var cb = "itcb" + Date.now() + Math.floor(Math.random() * 1000);
+      var s = document.createElement("script");
+      var timer = setTimeout(function () { cleanup(); reject(new Error("timeout")); }, 8000);
+      function cleanup() {
+        clearTimeout(timer);
+        delete window[cb];
+        if (s.parentNode) s.parentNode.removeChild(s);
+      }
+      window[cb] = function (d) { cleanup(); resolve(d); };
+      s.onerror = function () { cleanup(); reject(new Error("jsonp")); };
+      s.src = url + "&callback=" + cb;
+      document.head.appendChild(s);
+    });
+  }
+  function itunesSearch(term) {
+    var url = "https://itunes.apple.com/search?media=music&entity=song&limit=8&country=FR&term=" + encodeURIComponent(term);
+    return fetch(url).then(function (r) {
+      if (!r.ok) throw new Error("http");
+      return r.json();
+    }).catch(function () { return jsonp(url); });
+  }
+  function loadPreview(song) {
+    var key = song.t + "|" + song.a;
+    if (previewCache[key]) return Promise.resolve(previewCache[key]);
+    return itunesSearch(song.t + " " + song.a.split(/ et /)[0]).then(function (d) {
+      var url = pickPreview((d && d.results) || [], song);
+      if (url) previewCache[key] = url;
+      return url;
+    });
+  }
+  function playUrl(url, token) {
+    if (token !== playToken) return;
+    player.src = url;
+    player.volume = 1;
+    barFill.style.width = "0%";
+    setPlayStatus("Extrait en cours…");
+    var p = player.play();
+    if (p && p.catch) p.catch(function () { setPlayStatus("Appuyez sur « Rejouer 15 s » pour lancer l’extrait."); });
+  }
+  function startPreview(song) {
+    var token = ++playToken;
+    barFill.style.width = "0%";
+    setPlayStatus("Recherche de l’extrait…");
+    loadPreview(song).then(function (url) {
+      if (token !== playToken) return;
+      if (!url) { setPlayStatus("Extrait introuvable. Ouvrez un lien après « Voir le morceau »."); return; }
+      playUrl(url, token);
+    }, function () {
+      if (token === playToken) setPlayStatus("Recherche impossible (réseau). Ouvrez un lien après « Voir le morceau ».");
+    });
+  }
+  player.addEventListener("timeupdate", function () {
+    if (player.src.indexOf("data:") === 0) return;
+    var t = player.currentTime;
+    barFill.style.width = Math.min(100, (t / CLIP) * 100) + "%";
+    if (t >= CLIP - 1) player.volume = Math.max(0, CLIP - t);
+    if (t >= CLIP) { player.pause(); setPlayStatus("Extrait terminé."); }
+  });
+  player.addEventListener("ended", function () {
+    if (player.src.indexOf("data:") !== 0) setPlayStatus("Extrait terminé.");
+  });
+  btnPlay.addEventListener("click", function () {
+    if (!current) return;
+    var key = current.song.t + "|" + current.song.a;
+    if (previewCache[key]) playUrl(previewCache[key], ++playToken);
+    else startPreview(current.song);
+  });
+
+  function setStyle(name, save) {
+    if (name === "neon") root.removeAttribute("data-style");
+    else root.setAttribute("data-style", name);
+    Array.prototype.forEach.call(document.querySelectorAll("#styles button"), function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-style") === name ? "true" : "false");
+    });
+    readTokens();
+    renderChips();
+    draw();
+    if (save) { try { localStorage.setItem("bingo-style", name); } catch (e) {} }
+  }
+
+  document.getElementById("levels").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button[data-level]");
+    if (b) setLevel(b.getAttribute("data-level"));
+  });
+  document.getElementById("levels").addEventListener("keydown", function (ev) {
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    var order = ["easy", "mid", "hard"];
+    var i = order.indexOf(level) + (ev.key === "ArrowRight" ? 1 : -1);
+    i = (i + order.length) % order.length;
+    setLevel(order[i]);
+    document.getElementById("tab-" + order[i]).focus();
+  });
+  document.getElementById("styles").addEventListener("click", function (ev) {
+    var b = ev.target.closest("button[data-style]");
+    if (b) setStyle(b.getAttribute("data-style"), true);
+  });
+  document.getElementById("clear").addEventListener("click", function () { history = []; renderHistory(); });
+  document.getElementById("reset-filters").addEventListener("click", function () {
+    if (spinning) return;
+    sel = { e: {}, g: {}, l: {} };
+    buildFilters();
+    applyFilters();
+  });
+  btnTitle.addEventListener("click", function () {
+    if (!current) return;
+    var show = titleBox.hidden;
+    titleBox.hidden = !show;
+    btnTitle.textContent = show ? "Masquer le morceau" : "Voir le morceau";
+  });
+  btnAnswer.addEventListener("click", function () {
+    if (!current) return;
+    var show = ansBox.hidden;
+    ansBox.hidden = !show;
+    btnAnswer.textContent = show ? "Masquer la réponse" : "Voir la réponse";
+  });
+  spinBtn.addEventListener("click", spin);
+
+  var saved = null;
+  try { saved = localStorage.getItem("bingo-style"); } catch (e) {}
+  setStyle(saved === "plage" || saved === "pop" ? saved : "neon", false);
+  buildFilters();
+  applyFilters();
+  renderHistory();
+  showIdle();
+  updateSpinBtn();
+
+  if ("ResizeObserver" in window) new ResizeObserver(draw).observe(canvas);
+  else window.addEventListener("resize", draw);
+  if (document.fonts) {
+    document.fonts.load('800 16px Outfit').then(draw, function () {});
+    document.fonts.ready.then(draw);
+  }
+})();
+</script>
+</body>
+</html>
